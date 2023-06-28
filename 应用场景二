@@ -1,0 +1,133 @@
+<?php
+date_default_timezone_set('Asia/Shanghai');
+session_start();
+
+function encrypt_content($content, $key) {
+    return openssl_encrypt($content, 'AES-128-CBC', $key, OPENSSL_RAW_DATA, '0000000000000000');
+}
+
+function decrypt_content($content, $key) {
+    return openssl_decrypt($content, 'AES-128-CBC', $key, OPENSSL_RAW_DATA, '0000000000000000');
+}
+
+if (isset($_POST['submit'])) {
+    // 检查用户是否填写了内容或上传了文件
+    if (empty($_POST['content']) && empty($_FILES['image']['name'])) {
+        $_SESSION['error'] = 'Please enter content or upload a file.';
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit;
+    }
+    $key = 'chaoyuyan';
+    $content = $_POST['content'];
+    $amount = $_POST['amount'];
+    $filename = date('Y-m-d-His') . '-' . rand(1000, 9999) . '-' . $amount . '.log';
+    $encrypted_content = encrypt_content($content, $key);
+    
+  
+        
+        // 保存上传的文件
+        if (isset($_FILES['image']) && $_FILES['image']['error'] == UPLOAD_ERR_OK) {
+$image_extension = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+$image_name = $filename . '.' . $image_extension;
+            $image_tmp_name = $_FILES['image']['tmp_name'];
+            $image_path = 'help/' . $image_name ;
+
+            // 检查文件类型和大小是否符合要求
+            $allowed_types = array('image/jpeg', 'image/png', 'image/gif');
+            $max_size = 1024 * 1024; // 1MB
+            $file_type = $_FILES['image']['type'];
+            $file_size = $_FILES['image']['size'];
+            if (!in_array($file_type, $allowed_types) || $file_size > $max_size) {
+                $_SESSION['error'] = 'Please upload a file in JPG, PNG, or GIF format and less than 1MB.';
+                header('Location: ' . $_SERVER['PHP_SELF']);
+                exit;	
+            }
+
+            // 移动文件
+            if (!move_uploaded_file($image_tmp_name, $image_path)) {
+                $_SESSION['error'] = 'Failed to upload file, please try again later.';
+                header('Location: ' . $_SERVER['PHP_SELF']);
+                exit;
+            }
+        }
+		
+
+ $file = fopen('help/' . $filename, 'w');
+      if ($file) {   
+     fwrite($file, $encrypted_content); 
+    fclose($file);
+        $_SESSION['message'] = 'Okay wait for me.' ;
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit;
+    } else {
+        $_SESSION['error'] = 'Failed to save, please try again later.';
+    }
+}
+function display_logs() {
+    $log_files = glob('help/*.log');
+    foreach ($log_files as $log_file) {
+        $filename_parts = explode('-', basename($log_file));
+        $date = $filename_parts[0] . '-' . $filename_parts[1] . '-' . $filename_parts[2];
+        $amount = str_replace('.log', '', $filename_parts[5]);
+        echo '<p>' . $date . ' Helped with ' . $amount . '</p>';
+    }
+}
+
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>友善帮助金 - The Kind Help Fund</title>
+<meta name="keywords" content="友善帮助金, The Kind Help Fund, 帮助, 遇到困难的人,需要帮助的人,支持, 支付宝, 微信, 银行账号" />
+<meta name="description" content="友善帮助金是为了帮助有需要的人，遇到困难的人，目前每月15人民币，次月更新。支持微信、支付宝、银行账号，不需要任何理由，只需留下收款方式和金额。" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<msg>
+<red>
+<?php if (isset($_SESSION['error'])): ?>
+<span style="color: red;"><?php echo $_SESSION['error']; ?></span>
+<?php unset($_SESSION['error']); ?><?php endif; ?>
+</red>
+<green>
+<?php if (isset($_SESSION['message'])): ?>
+<span style="color: green;"><?php echo $_SESSION['message']; ?></span>
+<?php unset($_SESSION['message']); ?><?php endif; ?>
+</green>
+
+<tips>
+
+每月15人民币，次月更新。<br />
+不需要任何理由，只需留下收款方式和金额，最多15。<br />
+支持微信，支付宝，银行账号。
+
+</tips>
+<form method="post" enctype="multipart/form-data">
+
+<label for="amount">金额</label><br>
+<input type="number" id="amount" name="amount" min="0" step="0.01" required /><br>
+
+        <label for="content">账号</label><br>
+        <textarea id="content" name="content" rows="3" placeholder="这里写收款方式和账号或在下面上传收款二维码。"></textarea><br>
+   
+
+<input type="file" name="image" accept="image/*" /><br>
+
+        <input type="submit" name="submit" value="OK" />
+</form>
+
+</msg>
+ <logs>
+ <header>
+ 目前上限每月15，如果当月额度已经被领完，则会按顺序在次月收到帮助金！
+ </header>
+ <?php display_logs(); ?>
+ </logs>
+<links>
+© 2023 hi.chaoyuyan.com
+</links>
+</body>
+</html>
